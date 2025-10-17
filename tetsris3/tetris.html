@@ -132,7 +132,7 @@
   <div class="board">
     <div class="game">
       <h1>🧩 Tetris Neon Deluxe</h1>
-      <div id="timer">Waktu: 60</div>
+      <div id="timer">Waktu: 30</div>
       <canvas id="tetris" width="280" height="560"></canvas>
 
       <div id="overlay" class="overlay" style="display:none">
@@ -186,7 +186,7 @@
 
 <script>
 /* ---------- GAME SCRIPT ---------- */
-const GAME_TIME_LIMIT = 60; // ⏰ Sekarang 60 detik
+const GAME_TIME_LIMIT = 50; // ⏰ ubah ke 50 kalau mau 50 detik
 let timeLeft = GAME_TIME_LIMIT;
 let timerInterval = null;
 
@@ -338,5 +338,17 @@ document.addEventListener('keydown',e=>{
 });
 
 document.getElementById('btn-left').onclick=()=>{player.pos.x--;if(collide(arena,player))player.pos.x++;};
-document.
+document.getElementById('btn-right').onclick=()=>{player.pos.x++;if(collide(arena,player))player.pos.x--;};
+document.getElementById('btn-rotate').onclick=()=>{rotate(player.matrix,1);if(collide(arena,player))rotate(player.matrix,-1);};
+document.getElementById('btn-down').onclick=()=>{player.pos.y++;if(collide(arena,player)){player.pos.y--;merge(arena,player);sweepLines();spawnNext();}dropCounter=0;};
+document.getElementById('btn-drop').onclick=()=>{while(!collide(arena,player))player.pos.y++;player.pos.y--;merge(arena,player);sweepLines();spawnNext();};
+document.getElementById('btn-pause').onclick=()=>{paused=!paused;document.getElementById('btn-pause').innerText=paused?'Resume':'Pause';};
+document.getElementById('btn-restart').onclick=()=>{startGame();};
+overlayRestart.onclick=()=>{startGame();};
+overlayClose.onclick=()=>{hideOverlay();};
+
+window.onload=()=>{document.body.focus();loadHighscore();draw();startGame();}
+</script>
+</body>
+</html>
 
