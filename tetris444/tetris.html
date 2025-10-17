@@ -11,29 +11,45 @@
     --rows: 20;
     --neon-blue: #00eaff;
     --neon-pink: #ff00c8;
-    --bg1: #06071a;
-    --bg2: #0a1535;
   }
 
   html, body {
     height: 100%;
     margin: 0;
     font-family: "Orbitron", "Inter", sans-serif;
-
-    /* 🌌 Gambar latar belakang baru */
-    background-image: 
-      linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.8)), 
-      url("https://penerbitdeepublish.com/wp-content/uploads/2021/03/latar-belakang-1280x720.jpg");
+    color: #e8f6ff;
+    overflow: hidden;
+    /* 🌄 Tambahan background gambar */
+    background-image: url('https://penerbitdeepublish.com/wp-content/uploads/2021/03/latar-belakang-1280x720.jpg');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-
-    color: #e8f6ff;
-    overflow: hidden;
+    background-attachment: fixed;
   }
 
-  .wrap { height: 100%; display: flex; align-items: center; justify-content: center; padding: 28px; }
-  .board { display: grid; grid-template-columns: 1fr 260px; gap: 24px; align-items: start; }
+  /* Lapisan gelap di atas gambar agar teks neon tetap jelas */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 20, 0.65);
+    z-index: -1;
+  }
+
+  .wrap {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 28px;
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 24px;
+    align-items: start;
+  }
 
   h1 {
     font-size: 22px;
@@ -46,10 +62,11 @@
   }
 
   .game {
-    background: rgba(10, 20, 40, 0.8);
+    background: rgba(10, 20, 40, 0.7);
     padding: 16px;
     border-radius: 16px;
-    box-shadow: 0 0 25px rgba(0, 238, 255, 0.2), inset 0 0 20px rgba(0, 238, 255, 0.08);
+    box-shadow: 0 0 25px rgba(0, 238, 255, 0.2),
+                inset 0 0 20px rgba(0, 238, 255, 0.08);
     position: relative;
     backdrop-filter: blur(10px);
   }
@@ -57,7 +74,8 @@
   canvas#tetris {
     border: 3px solid var(--neon-blue);
     border-radius: 10px;
-    box-shadow: 0 0 20px rgba(0, 238, 255, 0.5), inset 0 0 10px rgba(0, 238, 255, 0.3);
+    box-shadow: 0 0 20px rgba(0, 238, 255, 0.5),
+                inset 0 0 10px rgba(0, 238, 255, 0.3);
     display: block;
     background: radial-gradient(circle at top, #051425, #000);
   }
@@ -82,7 +100,10 @@
     animation: pop 0.3s ease;
   }
 
-  @keyframes pop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes pop {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
 
   .side { width: 260px; }
 
@@ -119,12 +140,25 @@
     box-shadow: 0 0 12px rgba(0, 255, 255, 0.4);
   }
 
-  button:hover { filter: brightness(1.3); box-shadow: 0 0 18px rgba(255, 0, 255, 0.5); }
+  button:hover {
+    filter: brightness(1.3);
+    box-shadow: 0 0 18px rgba(255, 0, 255, 0.5);
+  }
 
-  footer { font-size: 11px; text-align: center; color: #a0cfff; opacity: 0.8; }
+  footer {
+    font-size: 11px;
+    text-align: center;
+    color: #a0cfff;
+    opacity: 0.8;
+  }
+
   footer strong { color: #fff; }
 
-  .hint { font-size: 12px; color: #88b8ff; margin-top: 4px; }
+  .hint {
+    font-size: 12px;
+    color: #88b8ff;
+    margin-top: 4px;
+  }
 
   #timer {
     font-size: 18px;
@@ -136,7 +170,6 @@
 </style>
 </head>
 <body tabindex="0">
-<!-- 🧩 GAME AREA -->
 <div class="wrap">
   <div class="board">
     <div class="game">
@@ -193,9 +226,163 @@
   </div>
 </div>
 
-<!-- 🧠 SCRIPT GAME -->
 <script>
-// (semua script game kamu di sini — sama seperti sebelumnya, tidak diubah)
-</script>
-</body>
-</html>
+/* =============== SCRIPT GAME =============== */
+const GAME_TIME_LIMIT = 50;
+let timeLeft = GAME_TIME_LIMIT;
+let timerInterval = null;
+
+const canvas = document.getElementById('tetris');
+const ctx = canvas.getContext('2d');
+const nextCanvas = document.getElementById('next');
+const nctx = nextCanvas.getContext('2d');
+const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlay-title');
+const overlayMsg = document.getElementById('overlay-msg');
+const overlayRestart = document.getElementById('overlay-restart');
+const overlayClose = document.getElementById('overlay-close');
+
+const scale = 28, COLS = 10, ROWS = 20;
+const colors = [null,'#00f0f0','#0050f0','#f0a000','#f0f000','#00f000','#a000f0','#f04040'];
+const pieces = 'IOTSZJL';
+const shapes = {
+  I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+  O: [[2,2],[2,2]],
+  T: [[0,3,0],[3,3,3],[0,0,0]],
+  S: [[0,4,4],[4,4,0],[0,0,0]],
+  Z: [[5,5,0],[0,5,5],[0,0,0]],
+  J: [[6,0,0],[6,6,6],[0,0,0]],
+  L: [[0,0,7],[7,7,7],[0,0,0]]
+};
+
+function createMatrix(w,h){const m=[];while(h--)m.push(new Array(w).fill(0));return m;}
+let arena = createMatrix(COLS,ROWS);
+const player = { pos:{x:0,y:0}, matrix:null };
+let nextPiece = { matrix:createPiece(pieces[Math.floor(Math.random()*pieces.length)]) };
+
+function createPiece(t){return shapes[t].map(r=>r.slice());}
+function drawMatrix(matrix, offset, context, cellSize){
+  for(let y=0;y<matrix.length;y++){
+    for(let x=0;x<matrix[y].length;x++){
+      const val = matrix[y][x];
+      if(val){
+        context.fillStyle = colors[val];
+        context.fillRect((x+offset.x)*cellSize, (y+offset.y)*cellSize, cellSize-1, cellSize-1);
+      }
+    }
+  }
+}
+function merge(arenaRef, piece){piece.matrix.forEach((row,y)=>{row.forEach((value,x)=>{if(value)arenaRef[y+piece.pos.y][x+piece.pos.x]=value;});});}
+function collide(arenaRef, piece){
+  const m=piece.matrix;
+  for(let y=0;y<m.length;y++){
+    for(let x=0;x<m[y].length;x++){
+      if(m[y][x]&&(arenaRef[y+piece.pos.y]&&arenaRef[y+piece.pos.y][x+piece.pos.x])!==0)return true;
+    }
+  }return false;
+}
+function rotate(matrix,dir){
+  for(let y=0;y<matrix.length;y++){for(let x=0;x<y;x++){[matrix[x][y],matrix[y][x]]=[matrix[y][x],matrix[x][y]];}}
+  if(dir>0)matrix.forEach(row=>row.reverse());else matrix.reverse();
+}
+function showOverlay(title,msg){overlayTitle.innerText=title;overlayMsg.innerText=msg;overlay.style.display='flex';}
+function hideOverlay(){overlay.style.display='none';}
+function spawnNext(){
+  player.matrix = nextPiece.matrix.map(r=>r.slice());
+  player.pos.y=0;
+  player.pos.x=Math.floor((COLS-player.matrix[0].length)/2);
+  nextPiece.matrix=createPiece(pieces[Math.floor(Math.random()*pieces.length)]);
+  if(collide(arena,player)){stopGame();showOverlay('Game Over','Area penuh — permainan selesai.');}
+}
+function sweepLines(){
+  let rowCount=0;
+  outer:for(let y=arena.length-1;y>=0;y--){
+    for(let x=0;x<arena[y].length;x++){if(arena[y][x]===0)continue outer;}
+    const row=arena.splice(y,1)[0].fill(0);
+    arena.unshift(row);
+    y++;
+    rowCount++;
+  }
+  if(rowCount>0){
+    const points=[0,40,100,300,1200];
+    score+=points[rowCount]*level;
+    lines+=rowCount;
+    level=Math.floor(lines/10)+1;
+    updateStats();
+  }
+  return rowCount;
+}
+
+let score=0, lines=0, level=1, highscore=0;
+const STORAGE_KEY='tetris_highscore_v2';
+function loadHighscore(){const v=parseInt(localStorage.getItem(STORAGE_KEY)||'0');if(!isNaN(v))highscore=v;document.getElementById('highscore').innerText=highscore;}
+function saveHighscore(){localStorage.setItem(STORAGE_KEY,String(highscore));document.getElementById('highscore').innerText=highscore;}
+function updateStats(){document.getElementById('score').innerText=score;document.getElementById('level').innerText=level;document.getElementById('lines').innerText=lines;if(score>highscore){highscore=score;saveHighscore();}}
+
+let dropCounter=0, dropInterval=1000, lastTime=0, paused=false, running=false;
+function update(time=0){
+  if(!running)return;
+  if(paused){lastTime=time;requestAnimationFrame(update);return;}
+  const delta=time-lastTime;
+  lastTime=time;
+  dropCounter+=delta;
+  dropInterval=Math.max(100,1000-(level-1)*75);
+  if(dropCounter>dropInterval){player.pos.y++;if(collide(arena,player)){player.pos.y--;merge(arena,player);sweepLines();spawnNext();}dropCounter=0;}
+  draw();
+  requestAnimationFrame(update);
+}
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
+  drawMatrix(arena,{x:0,y:0},ctx,scale);
+  if(player.matrix)drawMatrix(player.matrix,player.pos,ctx,scale);
+  drawMatrix(nextPiece.matrix,{x:1,y:1},nctx,28);
+}
+
+function startTimer(){
+  clearInterval(timerInterval);
+  timeLeft = GAME_TIME_LIMIT;
+  document.getElementById('timer').innerText = `Waktu: ${timeLeft}`;
+  timerInterval = setInterval(()=>{
+    if(!paused){
+      timeLeft--;
+      document.getElementById('timer').innerText = `Waktu: ${timeLeft}`;
+      if(timeLeft<=0){
+        clearInterval(timerInterval);
+        stopGame();
+        showOverlay('Waktu Habis!', 'Permainan selesai karena waktu habis.');
+      }
+    }
+  },1000);
+}
+
+function startGame(){
+  arena=createMatrix(COLS,ROWS);
+  score=0;lines=0;level=1;
+  dropCounter=0;paused=false;
+  hideOverlay();
+  loadHighscore();
+  spawnNext();
+  updateStats();
+  startTimer();
+  if(!running){running=true;requestAnimationFrame(update);}
+}
+function stopGame(){running=false;clearInterval(timerInterval);}
+
+document.addEventListener('keydown',e=>{
+  if(!running)return;
+  if(e.key==='ArrowLeft'){player.pos.x--;if(collide(arena,player))player.pos.x++;}
+  else if(e.key==='ArrowRight'){player.pos.x++;if(collide(arena,player))player.pos.x--;}
+  else if(e.key==='ArrowDown'){player.pos.y++;if(collide(arena,player)){player.pos.y--;merge(arena,player);sweepLines();spawnNext();}dropCounter=0;}
+  else if(e.key==='ArrowUp'){rotate(player.matrix,1);if(collide(arena,player))rotate(player.matrix,-1);}
+  else if(e.code==='Space'){e.preventDefault();while(!collide(arena,player))player.pos.y++;player.pos.y--;merge(arena,player);sweepLines();spawnNext();dropCounter=0;}
+  else if(e.key.toLowerCase()==='p'){paused=!paused;document.getElementById('btn-pause').innerText=paused?'Resume':'Pause';}
+});
+
+document.getElementById('btn-left').onclick=()=>{player.pos.x--;if(collide(arena,player))player.pos.x++;};
+document.getElementById('btn-right').onclick=()=>{player.pos.x++;if(collide(arena,player))player.pos.x--;};
+document.getElementById('btn-rotate').onclick=()=>{rotate(player.matrix,1);if(collide(arena,player))rotate(player.matrix,-1);};
+document.getElementById('btn-down').onclick=()=>{player.pos.y++;if(collide(arena,player)){player.pos.y--;merge(arena,player);sweepLines();spawnNext();}dropCounter=0;};
+document.getElementById('btn-drop').onclick=()=>{while(!collide(arena,player))player.pos.y++;player.pos.y--;merge(arena,player);sweepLines();spawnNext();};
+document.getElementById('btn-pause').onclick=()=>{paused=!paused;document.getElementById('btn-pause
+
